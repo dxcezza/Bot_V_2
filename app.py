@@ -31,14 +31,13 @@ sp = spotipy.Spotify(auth_manager=SpotifyClientCredentials(
 # Конфигурация БД
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SECRET_KEY'] = os.getenv("SECRET_KEY")
+app.config['SECRET_KEY'] = 'your-secret-key'
 
 # Инициализация расширений
 db = SQLAlchemy(app)
 bcrypt = Bcrypt(app)
-CORS(app)
-login_manager = LoginManager()
-login_manager.init_app(app)
+CORS(app, supports_credentials=True)
+login_manager = LoginManager(app)
 login_manager.login_view = 'auth_page'
 
 # Модель пользователя
@@ -78,10 +77,13 @@ with app.app_context():
     db.create_all()
 
 # Маршрут для главной страницы (защищенный)
-@app.route('/')
-@login_required
-def index():
-    return send_from_directory(app.static_folder, 'index.html')
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def serve(path):
+    if path != "" and os.path.exists(os.path.join(app.static_folder, path)):
+        return send_from_directory(app.static_folder, path)
+    else:
+        return send_from_directory(app.static_folder, 'index.html')
 
 
 # Маршрут для регистрации
@@ -120,7 +122,11 @@ def login():
         return jsonify({"error": "Invalid credentials"}), 401
 
     login_user(user)  # Авторизуем пользователя
-    return jsonify({"message": "Login successful", "user_id": user.id}), 200
+    return jsonify({
+        "message": "Login successful",
+        "user_id": user.id,
+        "username": user.username
+    }), 200
 
 # Маршрут для выхода
 @app.route('/logout', methods=['POST'])
