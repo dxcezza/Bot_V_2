@@ -28,6 +28,7 @@ const TrackSearchResults = () => {
   const [libraryTracks, setLibraryTracks] = useState<string[]>([]);
   const { toast } = useToast();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
 
   const searchTracks = async (query: string) => {
     if (!query.trim()) {
@@ -67,14 +68,54 @@ const TrackSearchResults = () => {
     searchTracks(query);
   };
 
-  const handlePlay = (track: SearchResult) => {
-    if (track.preview_url) {
-      const audio = new Audio(track.preview_url);
-      audio.play();
-    } else {
+  const handlePlay = async (track: SearchResult) => {
+    try {
+      // Stop any currently playing audio
+      if (currentAudio) {
+        currentAudio.pause();
+        currentAudio.src = '';
+      }
+
       toast({
-        title: 'Preview unavailable',
-        description: 'No preview available for this track',
+        title: 'Loading track',
+        description: 'Please wait while we prepare the track...',
+      });
+
+      const response = await fetch('/api/download', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          track_url: track.track_url,
+        }),
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const audioUrl = URL.createObjectURL(blob);
+        const audio = new Audio(audioUrl);
+        
+        audio.onended = () => {
+          URL.revokeObjectURL(audioUrl);
+          setCurrentAudio(null);
+        };
+
+        audio.play();
+        setCurrentAudio(audio);
+
+        toast({
+          title: 'Now Playing',
+          description: `${track.title} by ${track.artist}`,
+        });
+      } else {
+        throw new Error('Failed to load track');
+      }
+    } catch (error) {
+      console.error('Playback failed:', error);
+      toast({
+        title: 'Playback failed',
+        description: 'There was an error playing the track',
         variant: 'destructive',
       });
     }
