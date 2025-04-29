@@ -31,7 +31,7 @@ sp = spotipy.Spotify(auth_manager=SpotifyClientCredentials(
 # Конфигурация БД
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SECRET_KEY'] = 'your-secret-key'
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
 
 # Инициализация расширений
 db = SQLAlchemy(app)
